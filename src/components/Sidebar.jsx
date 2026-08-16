@@ -1,5 +1,4 @@
 const NAV = [
-  { key: "funnel",   icon: "📊", label: "Funnel" },
   { key: "sessions", icon: "🧑‍💻", label: "Sessions" },
 ];
 

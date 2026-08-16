@@ -52,6 +52,29 @@ function LocationCell({ ip, country, city }) {
   );
 }
 
+const OS_ICONS = {
+  Windows: "🪟",
+  macOS:   "🍎",
+  iOS:     "📱",
+  Android: "🤖",
+  Linux:   "🐧",
+  Unknown: "❓",
+};
+
+function OSBadge({ os }) {
+  if (!os) return <span style={{ color: "#ddd" }}>—</span>;
+  const icon = OS_ICONS[os] || "💻";
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 5,
+      fontSize: 11, fontWeight: 600, padding: "3px 9px", borderRadius: 99,
+      background: "#F3F4F6", color: "#444",
+    }}>
+      {icon} {os}
+    </span>
+  );
+}
+
 export default function SessionsPage() {
   const { data, loading, error, reload, lastRefresh } = useStats();
   const [, setTick] = useState(0);
@@ -101,11 +124,11 @@ export default function SessionsPage() {
         {/* Table header */}
         <div style={{
           display: "grid",
-          gridTemplateColumns: "130px 1fr 190px 110px 160px 120px 90px",
+          gridTemplateColumns: "130px 1fr 190px 110px 160px 100px 90px",
           padding: "12px 24px", background: "#F9FAFB",
           borderBottom: "1px solid #f0f0f0",
         }}>
-          {["Name", "Role", "Last step", "Status", "IP / Location", "Camera cmd", "Last seen"].map(h => (
+          {["Name", "Role", "Last step", "Status", "IP / Location", "OS", "Last seen"].map(h => (
             <span key={h} style={{
               fontSize: 11, fontWeight: 700, color: "#bbb",
               textTransform: "uppercase", letterSpacing: "0.07em",
@@ -125,7 +148,7 @@ export default function SessionsPage() {
             key={s.session_id}
             style={{
               display: "grid",
-              gridTemplateColumns: "130px 1fr 190px 110px 160px 120px 90px",
+              gridTemplateColumns: "130px 1fr 190px 110px 160px 100px 90px",
               padding: "14px 24px", alignItems: "center",
               borderBottom: i < sessions.length - 1 ? "1px solid #f8f8f8" : "none",
               transition: "background 0.1s",
@@ -170,15 +193,8 @@ export default function SessionsPage() {
             {/* IP + Location */}
             <LocationCell ip={s.ip_address} country={s.country} city={s.city} />
 
-            {/* Camera command copied */}
-            <span style={{
-              fontSize: 11, fontWeight: 700, padding: "3px 10px",
-              borderRadius: 99, display: "inline-block",
-              color:      s.camera_cmd_copied ? "#1D4ED8" : "#9CA3AF",
-              background: s.camera_cmd_copied ? "#EFF6FF" : "#F9FAFB",
-            }}>
-              {s.camera_cmd_copied ? "📋 Copied" : "—"}
-            </span>
+            {/* OS */}
+            <OSBadge os={s.os_name} />
 
             {/* Last seen */}
             <span style={{ fontSize: 12, color: "#bbb" }}>

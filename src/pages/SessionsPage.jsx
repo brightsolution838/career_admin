@@ -91,8 +91,6 @@ export default function SessionsPage() {
 
   const { sessions } = data;
 
-  console.log(sessions, ">>>>>>>");
-
   return (
     <div style={{ padding: "40px 40px 80px" }}>
 
@@ -124,11 +122,11 @@ export default function SessionsPage() {
         {/* Table header */}
         <div style={{
           display: "grid",
-          gridTemplateColumns: "130px 1fr 190px 110px 160px 100px 90px",
+          gridTemplateColumns: "160px 1fr 190px 110px 160px 100px 90px",
           padding: "12px 24px", background: "#F9FAFB",
           borderBottom: "1px solid #f0f0f0",
         }}>
-          {["Name", "Role", "Last step", "Status", "IP / Location", "OS", "Last seen"].map(h => (
+          {["Applicant", "Role", "Last step", "Status", "IP / Location", "OS", "Last seen"].map(h => (
             <span key={h} style={{
               fontSize: 11, fontWeight: 700, color: "#bbb",
               textTransform: "uppercase", letterSpacing: "0.07em",
@@ -148,7 +146,7 @@ export default function SessionsPage() {
             key={s.session_id}
             style={{
               display: "grid",
-              gridTemplateColumns: "130px 1fr 190px 110px 160px 100px 90px",
+              gridTemplateColumns: "160px 1fr 190px 110px 160px 100px 90px",
               padding: "14px 24px", alignItems: "center",
               borderBottom: i < sessions.length - 1 ? "1px solid #f8f8f8" : "none",
               transition: "background 0.1s",
@@ -156,17 +154,32 @@ export default function SessionsPage() {
             onMouseEnter={e => e.currentTarget.style.background = "#FAFAFA"}
             onMouseLeave={e => e.currentTarget.style.background = "transparent"}
           >
-            {/* Name */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              {s.first_name || s.last_name ? (
-                <span style={{ fontSize: 13, fontWeight: 600, color: "#222" }}>
-                  {[s.first_name, s.last_name].filter(Boolean).join(" ")}
-                </span>
-              ) : (
-                <span style={{ fontSize: 12, fontFamily: "monospace", color: "#ccc" }} title={s.session_id}>
-                  {s.session_id.slice(0, 10)}…
-                </span>
-              )}
+            {/* Applicant — photo + name */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              {/* Photo avatar */}
+              <div style={{
+                width: 34, height: 34, borderRadius: "50%", flexShrink: 0,
+                background: "#F3F4F6", overflow: "hidden",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 16, border: "1px solid #e8e8e8",
+              }}>
+                {s.photo_url
+                  ? <img src={s.photo_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  : "🧑"
+                }
+              </div>
+              {/* Name or session ID */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
+                {s.first_name || s.last_name ? (
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "#222", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {[s.first_name, s.last_name].filter(Boolean).join(" ")}
+                  </span>
+                ) : (
+                  <span style={{ fontSize: 11, fontFamily: "monospace", color: "#ccc" }} title={s.session_id}>
+                    {s.session_id.slice(0, 10)}…
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Role */}

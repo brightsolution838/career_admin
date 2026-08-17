@@ -1,5 +1,6 @@
 const NAV = [
   { key: "sessions", icon: "🧑‍💻", label: "Sessions" },
+  { key: "jobs",     icon: "💼",    label: "Jobs" },
 ];
 
 export default function Sidebar({ active, onNav }) {

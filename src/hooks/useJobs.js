@@ -11,7 +11,9 @@ function adminHeaders() {
 }
 
 /**
- * Fetches ALL jobs (including inactive) for the admin dashboard.
+ * Fetches jobs for the admin dashboard.
+ * - Super admins: see all jobs (active + inactive)
+ * - Regular admins: see only their own jobs (active + inactive)
  * Exposes create / update / remove helpers that optimistically update state.
  */
 export function useJobs() {

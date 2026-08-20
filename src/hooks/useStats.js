@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:4000";
-const POLL_INTERVAL = 5000; // refresh every 5 seconds
+const POLL_INTERVAL = 30000; // refresh every 30 seconds (less frequent due to pagination)
 
-export function useStats() {
+export function useStats(page = 1, limit = 20, adminFilter = "") {
   const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState("");
@@ -14,7 +14,15 @@ export function useStats() {
     if (!silent) setLoading(true);
     setError("");
     try {
-      const res  = await fetch(`${API}/api/progress/stats`);
+      const token = localStorage.getItem("admin_token");
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      
+      const params = new URLSearchParams();
+      params.set("page", page.toString());
+      params.set("limit", limit.toString());
+      if (adminFilter) params.set("admin", adminFilter);
+      
+      const res  = await fetch(`${API}/api/progress/stats?${params}`, { headers });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Failed to load");
       setData(json);
@@ -26,16 +34,25 @@ export function useStats() {
     } finally {
       if (!silent) setLoading(false);
     }
-  }, []);
+  }, [page, limit, adminFilter]);
 
   useEffect(() => {
     // Initial load (shows spinner)
     load(false);
 
+    // Clear existing interval
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+
     // Poll silently so the UI doesn't flash a spinner on each tick
     intervalRef.current = setInterval(() => load(true), POLL_INTERVAL);
 
-    return () => clearInterval(intervalRef.current);
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
   }, [load]);
 
   return { data, loading, error, reload: () => load(false), lastRefresh };

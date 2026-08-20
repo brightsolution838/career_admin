@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 
-const API    = import.meta.env.VITE_API_URL    || "http://localhost:4000";
-const SECRET = import.meta.env.VITE_ADMIN_SECRET || "";
+const API = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
 function adminHeaders() {
+  const token = localStorage.getItem("admin_token");
   return {
     "Content-Type":  "application/json",
-    "Authorization": `Bearer ${SECRET}`,
+    "Authorization": `Bearer ${token}`,
   };
 }
 

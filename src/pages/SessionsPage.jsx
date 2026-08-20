@@ -76,8 +76,11 @@ function OSBadge({ os }) {
 }
 
 export default function SessionsPage() {
-  const { data, loading, error, reload, lastRefresh } = useStats();
+  const [page, setPage] = useState(1);
+  const [adminFilter, setAdminFilter] = useState("");
   const [, setTick] = useState(0);
+
+  const { data, loading, error, reload, lastRefresh } = useStats(page, 20, adminFilter);
 
   // Re-render every second so relative timestamps stay current
   useEffect(() => {
@@ -85,11 +88,16 @@ export default function SessionsPage() {
     return () => clearInterval(id);
   }, []);
 
+  // Reset to page 1 when filter changes
+  useEffect(() => {
+    if (page !== 1) setPage(1);
+  }, [adminFilter]);
+
   if (loading && !data) return <LoadingSpinner />;
   if (error && !data)   return <ErrorState message={error} onRetry={reload} />;
   if (!data)            return <LoadingSpinner />;
 
-  const { sessions } = data;
+  const { sessions, pagination, availableAdmins } = data;
 
   return (
     <div style={{ padding: "40px 40px 80px" }}>
@@ -100,9 +108,28 @@ export default function SessionsPage() {
           <h1 style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.02em", marginBottom: 4 }}>
             Sessions
           </h1>
-          <p style={{ fontSize: 13, color: "#aaa" }}>Last 50 candidate sessions — newest first</p>
+          <p style={{ fontSize: 13, color: "#aaa" }}>
+            {pagination ? `${pagination.totalSessions} total sessions` : "Candidate sessions"} — newest first
+            {adminFilter && ` — filtered by ${adminFilter}`}
+          </p>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          {/* Admin Filter */}
+          <select 
+            value={adminFilter} 
+            onChange={(e) => setAdminFilter(e.target.value)}
+            style={{
+              padding: "6px 12px", borderRadius: 6, border: "1px solid #e5e7eb",
+              fontSize: 12, background: "#fff", color: "#374151",
+              minWidth: 140
+            }}
+          >
+            <option value="">All admins</option>
+            {availableAdmins?.map(admin => (
+              <option key={admin} value={admin}>{admin}</option>
+            ))}
+          </select>
+
           {lastRefresh && (
             <span style={{ fontSize: 12, color: "#bbb" }}>Updated {timeAgo(lastRefresh)}</span>
           )}
@@ -122,11 +149,11 @@ export default function SessionsPage() {
         {/* Table header */}
         <div style={{
           display: "grid",
-          gridTemplateColumns: "160px 1fr 190px 110px 160px 100px 90px",
+          gridTemplateColumns: "160px 1fr 120px 190px 110px 160px 100px 90px",
           padding: "12px 24px", background: "#F9FAFB",
           borderBottom: "1px solid #f0f0f0",
         }}>
-          {["Applicant", "Role", "Last step", "Status", "IP / Location", "OS", "Last seen"].map(h => (
+          {["Applicant", "Role", "Admin", "Last step", "Status", "IP / Location", "OS", "Last seen"].map(h => (
             <span key={h} style={{
               fontSize: 11, fontWeight: 700, color: "#bbb",
               textTransform: "uppercase", letterSpacing: "0.07em",
@@ -139,14 +166,14 @@ export default function SessionsPage() {
         {/* Rows */}
         {sessions.length === 0 ? (
           <div style={{ padding: "60px 24px", textAlign: "center", color: "#bbb", fontSize: 13 }}>
-            No sessions recorded yet.
+            {adminFilter ? `No sessions found for admin "${adminFilter}".` : "No sessions recorded yet."}
           </div>
         ) : sessions.map((s, i) => (
           <div
             key={s.session_id}
             style={{
               display: "grid",
-              gridTemplateColumns: "160px 1fr 190px 110px 160px 100px 90px",
+              gridTemplateColumns: "160px 1fr 120px 190px 110px 160px 100px 90px",
               padding: "14px 24px", alignItems: "center",
               borderBottom: i < sessions.length - 1 ? "1px solid #f8f8f8" : "none",
               transition: "background 0.1s",
@@ -190,6 +217,11 @@ export default function SessionsPage() {
               }
             </span>
 
+            {/* Admin name */}
+            <span style={{ fontSize: 12, color: "#666" }}>
+              {s.owner_name || <span style={{ color: "#ddd" }}>—</span>}
+            </span>
+
             {/* Step badge */}
             <div><StepBadge step={s.current_step} /></div>
 
@@ -216,6 +248,55 @@ export default function SessionsPage() {
           </div>
         ))}
       </div>
+
+      {/* Pagination */}
+      {pagination && pagination.totalPages > 1 && (
+        <div style={{ 
+          display: "flex", 
+          alignItems: "center", 
+          justifyContent: "space-between", 
+          marginTop: 24,
+          padding: "16px 0"
+        }}>
+          <div style={{ fontSize: 13, color: "#666" }}>
+            Showing {((page - 1) * 20) + 1} - {Math.min(page * 20, pagination.totalSessions)} of {pagination.totalSessions} sessions
+          </div>
+          
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <button
+              onClick={() => setPage(page - 1)}
+              disabled={!pagination.hasPrev}
+              style={{
+                padding: "8px 12px", border: "1px solid #e5e7eb", borderRadius: 6,
+                background: pagination.hasPrev ? "#fff" : "#f9fafb",
+                color: pagination.hasPrev ? "#374151" : "#9ca3af",
+                cursor: pagination.hasPrev ? "pointer" : "not-allowed",
+                fontSize: 12, fontWeight: 500
+              }}
+            >
+              ← Previous
+            </button>
+            
+            <span style={{ fontSize: 13, color: "#666", padding: "0 12px" }}>
+              Page {page} of {pagination.totalPages}
+            </span>
+            
+            <button
+              onClick={() => setPage(page + 1)}
+              disabled={!pagination.hasNext}
+              style={{
+                padding: "8px 12px", border: "1px solid #e5e7eb", borderRadius: 6,
+                background: pagination.hasNext ? "#fff" : "#f9fafb",
+                color: pagination.hasNext ? "#374151" : "#9ca3af",
+                cursor: pagination.hasNext ? "pointer" : "not-allowed",
+                fontSize: 12, fontWeight: 500
+              }}
+            >
+              Next →
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

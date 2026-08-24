@@ -3,7 +3,7 @@ import { useJobs } from "../hooks/useJobs";
 import { LoadingSpinner, ErrorState } from "../components/StatusState";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const DEPTS = ["Engineering", "Product", "Design", "Marketing", "Operations"];
+const DEPTS = ["Engineering", "Product", "Design", "Marketing", "Operations", "Finance", "Other"];
 const TYPES = ["Full-time", "Part-time", "Contract", "Internship"];
 
 const DEPT_COLORS = {
@@ -12,6 +12,7 @@ const DEPT_COLORS = {
   Design:      { bg: "#FFF7ED", text: "#9A3412" },
   Marketing:   { bg: "#FDF4FF", text: "#6B21A8" },
   Operations:  { bg: "#F0F9FF", text: "#075985" },
+  Finance:     { bg: "#FEF3C7", text: "#92400E" },
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -32,6 +33,7 @@ const EMPTY_FORM = {
   responsibilities: "",
   requirements:     "",
   nice_to_have:     "",
+  benefits:         "",
 };
 
 function formFromJob(job) {
@@ -45,6 +47,7 @@ function formFromJob(job) {
     responsibilities: arrToText(job.responsibilities),
     requirements:     arrToText(job.requirements),
     nice_to_have:     arrToText(job.nice_to_have),
+    benefits:         arrToText(job.benefits),
   };
 }
 
@@ -124,12 +127,13 @@ function JobModal({ job, onSave, onClose }) {
         title:            form.title.trim(),
         dept:             form.dept,
         location:         form.location.trim() || "Remote",
-        type:             form.type,
+        type:             form.type.trim(),
         is_active:        form.is_active,
         summary:          form.summary.trim() || null,
         responsibilities: textToArr(form.responsibilities),
         requirements:     textToArr(form.requirements),
         nice_to_have:     textToArr(form.nice_to_have),
+        benefits:         textToArr(form.benefits),
       });
       onClose();
     } catch (err) {
@@ -182,10 +186,13 @@ function JobModal({ job, onSave, onClose }) {
                 {DEPTS.map(d => <option key={d} value={d}>{d}</option>)}
               </select>
             </Field>
-            <Field label="Type">
-              <select value={form.type} onChange={e => set("type", e.target.value)} style={selectStyle}>
-                {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
+            <Field label="Type" hint="(e.g. Full-time, Part-time)">
+              <input
+                value={form.type}
+                onChange={e => set("type", e.target.value)}
+                placeholder="Full-time, Part-time, Contract, Internship"
+                style={inputStyle}
+              />
             </Field>
           </div>
 
@@ -248,6 +255,17 @@ function JobModal({ job, onSave, onClose }) {
               onChange={e => set("nice_to_have", e.target.value)}
               rows={3}
               placeholder={"Kubernetes experience\nOpen source contributions…"}
+              style={textareaStyle}
+            />
+          </Field>
+
+          {/* Benefits */}
+          <Field label="Benefits" hint="(one item per line)">
+            <textarea
+              value={form.benefits}
+              onChange={e => set("benefits", e.target.value)}
+              rows={3}
+              placeholder={"Health insurance\nRetirement plan\nUnlimited PTO…"}
               style={textareaStyle}
             />
           </Field>

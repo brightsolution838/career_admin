@@ -3,6 +3,14 @@ import { useState, useEffect, useCallback, useRef } from "react";
 const API = import.meta.env.VITE_API_URL || "http://localhost:4000";
 const POLL_INTERVAL = 30000; // refresh every 30 seconds (less frequent due to pagination)
 
+function adminHeaders() {
+  const token = localStorage.getItem("admin_token");
+  return {
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${token}`,
+  };
+}
+
 export function useStats(page = 1, limit = 20, adminFilter = "") {
   const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(true);
@@ -55,5 +63,52 @@ export function useStats(page = 1, limit = 20, adminFilter = "") {
     };
   }, [load]);
 
-  return { data, loading, error, reload: () => load(false), lastRefresh };
+  // ── Delete single session ───────────────────────────────────────────────────
+  async function deleteSession(sessionId) {
+    const res = await fetch(`${API}/api/progress/sessions/${sessionId}`, {
+      method: "DELETE",
+      headers: adminHeaders(),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error || "Failed to delete session.");
+
+    // Remove from local state if present
+    if (data) {
+      setData(prev => ({
+        ...prev,
+        sessions: prev.sessions.filter(s => s.session_id !== sessionId),
+        pagination: prev.pagination ? {
+          ...prev.pagination,
+          totalSessions: prev.pagination.totalSessions - 1,
+        } : prev.pagination,
+      }));
+    }
+  }
+
+  // ── Delete multiple sessions ────────────────────────────────────────────────
+  async function deleteSessions(sessionIds) {
+    const res = await fetch(`${API}/api/progress/sessions/bulk-delete`, {
+      method: "DELETE",
+      headers: adminHeaders(),
+      body: JSON.stringify({ sessionIds }),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error || "Failed to delete sessions.");
+
+    // Remove from local state
+    if (data) {
+      setData(prev => ({
+        ...prev,
+        sessions: prev.sessions.filter(s => !sessionIds.includes(s.session_id)),
+        pagination: prev.pagination ? {
+          ...prev.pagination,
+          totalSessions: Math.max(0, prev.pagination.totalSessions - sessionIds.length),
+        } : prev.pagination,
+      }));
+    }
+
+    return body;
+  }
+
+  return { data, loading, error, reload: () => load(false), lastRefresh, deleteSession, deleteSessions };
 }

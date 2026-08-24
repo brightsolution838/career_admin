@@ -75,12 +75,142 @@ function OSBadge({ os }) {
   );
 }
 
+// ── Delete confirm dialog (single session) ──────────────────────────────────
+function DeleteSessionConfirm({ session, onConfirm, onCancel }) {
+  const [deleting, setDeleting] = useState(false);
+  const [err, setErr] = useState("");
+
+  async function handleDelete() {
+    setDeleting(true);
+    setErr("");
+    try {
+      await onConfirm();
+    } catch (e) {
+      setErr(e.message);
+      setDeleting(false);
+    }
+  }
+
+  const displayName = session.first_name || session.last_name
+    ? `${session.first_name} ${session.last_name}`.trim()
+    : session.session_id.slice(0, 10) + "…";
+
+  return (
+    <div
+      onClick={e => { if (e.target === e.currentTarget) onCancel(); }}
+      style={{
+        position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        zIndex: 100, padding: 16,
+      }}
+    >
+      <div style={{
+        background: "#fff", borderRadius: 16, padding: "28px 28px 24px",
+        maxWidth: 400, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
+      }}>
+        <h2 style={{ fontSize: 16, fontWeight: 800, marginBottom: 10 }}>Delete session?</h2>
+        <p style={{ fontSize: 13, color: "#666", lineHeight: 1.6, marginBottom: 20 }}>
+          Session for <strong>{displayName}</strong> will be permanently removed. This cannot be undone.
+        </p>
+        {err && (
+          <div style={{ fontSize: 13, color: "#EF4444", marginBottom: 14 }}>{err}</div>
+        )}
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <button onClick={onCancel} style={{
+            padding: "8px 18px", borderRadius: 8, border: "1px solid #e5e7eb",
+            background: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", color: "#555",
+          }}>Cancel</button>
+          <button onClick={handleDelete} disabled={deleting} style={{
+            padding: "8px 18px", borderRadius: 8, border: "none",
+            background: deleting ? "#FCA5A5" : "#EF4444", color: "#fff",
+            fontSize: 13, fontWeight: 700, cursor: deleting ? "default" : "pointer",
+          }}>
+            {deleting ? "Deleting…" : "Delete"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Delete confirm dialog (multiple sessions) ───────────────────────────────
+function DeleteSessionsConfirm({ count, onConfirm, onCancel }) {
+  const [deleting, setDeleting] = useState(false);
+  const [err, setErr] = useState("");
+
+  async function handleDelete() {
+    setDeleting(true);
+    setErr("");
+    try {
+      await onConfirm();
+    } catch (e) {
+      setErr(e.message);
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <div
+      onClick={e => { if (e.target === e.currentTarget) onCancel(); }}
+      style={{
+        position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        zIndex: 100, padding: 16,
+      }}
+    >
+      <div style={{
+        background: "#fff", borderRadius: 16, padding: "28px 28px 24px",
+        maxWidth: 400, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
+      }}>
+        <h2 style={{ fontSize: 16, fontWeight: 800, marginBottom: 10 }}>Delete {count} sessions?</h2>
+        <p style={{ fontSize: 13, color: "#666", lineHeight: 1.6, marginBottom: 20 }}>
+          {count} {count === 1 ? "session will" : "sessions will"} be permanently removed. This cannot be undone.
+        </p>
+        {err && (
+          <div style={{ fontSize: 13, color: "#EF4444", marginBottom: 14 }}>{err}</div>
+        )}
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <button onClick={onCancel} style={{
+            padding: "8px 18px", borderRadius: 8, border: "1px solid #e5e7eb",
+            background: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", color: "#555",
+          }}>Cancel</button>
+          <button onClick={handleDelete} disabled={deleting} style={{
+            padding: "8px 18px", borderRadius: 8, border: "none",
+            background: deleting ? "#FCA5A5" : "#EF4444", color: "#fff",
+            fontSize: 13, fontWeight: 700, cursor: deleting ? "default" : "pointer",
+          }}>
+            {deleting ? "Deleting…" : "Delete all"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Checkbox component ──────────────────────────────────────────────────────
+function Checkbox({ checked, onChange }) {
+  return (
+    <input
+      type="checkbox"
+      checked={checked}
+      onChange={e => onChange(e.target.checked)}
+      style={{
+        width: 18, height: 18, cursor: "pointer", margin: 0, marginRight: 8,
+        flexShrink: 0,
+      }}
+    />
+  );
+}
+
 export default function SessionsPage() {
   const [page, setPage] = useState(1);
   const [adminFilter, setAdminFilter] = useState("");
   const [, setTick] = useState(0);
+  const [selectedSessions, setSelectedSessions] = useState(new Set());
+  const [toDeleteSingle, setToDeleteSingle] = useState(null);
+  const [toDeleteMultiple, setToDeleteMultiple] = useState(false);
 
-  const { data, loading, error, reload, lastRefresh } = useStats(page, 20, adminFilter);
+  const { data, loading, error, reload, lastRefresh, deleteSession, deleteSessions } = useStats(page, 20, adminFilter);
 
   // Re-render every second so relative timestamps stay current
   useEffect(() => {
@@ -93,11 +223,48 @@ export default function SessionsPage() {
     if (page !== 1) setPage(1);
   }, [adminFilter]);
 
+  // Clear selection when data changes
+  useEffect(() => {
+    setSelectedSessions(new Set());
+  }, [data]);
+
   if (loading && !data) return <LoadingSpinner />;
   if (error && !data)   return <ErrorState message={error} onRetry={reload} />;
   if (!data)            return <LoadingSpinner />;
 
   const { sessions, pagination, availableAdmins } = data;
+
+  function toggleSession(sessionId) {
+    setSelectedSessions(prev => {
+      const next = new Set(prev);
+      if (next.has(sessionId)) {
+        next.delete(sessionId);
+      } else {
+        next.add(sessionId);
+      }
+      return next;
+    });
+  }
+
+  function toggleAllSessions() {
+    if (selectedSessions.size === sessions.length) {
+      setSelectedSessions(new Set());
+    } else {
+      setSelectedSessions(new Set(sessions.map(s => s.session_id)));
+    }
+  }
+
+  async function handleDeleteSingle(sessionId) {
+    await deleteSession(sessionId);
+    setToDeleteSingle(null);
+  }
+
+  async function handleDeleteMultiple() {
+    const ids = Array.from(selectedSessions);
+    await deleteSessions(ids);
+    setSelectedSessions(new Set());
+    setToDeleteMultiple(false);
+  }
 
   return (
     <div style={{ padding: "40px 40px 80px" }}>
@@ -111,12 +278,13 @@ export default function SessionsPage() {
           <p style={{ fontSize: 13, color: "#aaa" }}>
             {pagination ? `${pagination.totalSessions} total sessions` : "Candidate sessions"} — newest first
             {adminFilter && ` — filtered by ${adminFilter}`}
+            {selectedSessions.size > 0 && ` — ${selectedSessions.size} selected`}
           </p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           {/* Admin Filter */}
-          <select 
-            value={adminFilter} 
+          <select
+            value={adminFilter}
             onChange={(e) => setAdminFilter(e.target.value)}
             style={{
               padding: "6px 12px", borderRadius: 6, border: "1px solid #e5e7eb",
@@ -140,6 +308,17 @@ export default function SessionsPage() {
           }}>
             {loading ? "Refreshing…" : "↻ Refresh"}
           </button>
+
+          {/* Bulk delete button */}
+          {selectedSessions.size > 0 && (
+            <button onClick={() => setToDeleteMultiple(true)} style={{
+              padding: "7px 16px", background: "#EF4444", color: "#fff",
+              border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700,
+              cursor: "pointer",
+            }}>
+              🗑 Delete ({selectedSessions.size})
+            </button>
+          )}
         </div>
       </div>
 
@@ -149,11 +328,17 @@ export default function SessionsPage() {
         {/* Table header */}
         <div style={{
           display: "grid",
-          gridTemplateColumns: "160px 1fr 120px 190px 110px 160px 100px 90px",
+          gridTemplateColumns: "40px 160px 1fr 120px 190px 110px 160px 100px 90px 60px",
           padding: "12px 24px", background: "#F9FAFB",
           borderBottom: "1px solid #f0f0f0",
         }}>
-          {["Applicant", "Role", "Admin", "Last step", "Status", "IP / Location", "OS", "Last seen"].map(h => (
+          <div style={{ display: "flex", alignItems: "center" }}>
+            <Checkbox
+              checked={selectedSessions.size === sessions.length && sessions.length > 0}
+              onChange={toggleAllSessions}
+            />
+          </div>
+          {["Applicant", "Role", "Admin", "Last step", "Status", "IP / Location", "OS", "Last seen", "Action"].map(h => (
             <span key={h} style={{
               fontSize: 11, fontWeight: 700, color: "#bbb",
               textTransform: "uppercase", letterSpacing: "0.07em",
@@ -173,14 +358,23 @@ export default function SessionsPage() {
             key={s.session_id}
             style={{
               display: "grid",
-              gridTemplateColumns: "160px 1fr 120px 190px 110px 160px 100px 90px",
+              gridTemplateColumns: "40px 160px 1fr 120px 190px 110px 160px 100px 90px 60px",
               padding: "14px 24px", alignItems: "center",
               borderBottom: i < sessions.length - 1 ? "1px solid #f8f8f8" : "none",
               transition: "background 0.1s",
+              background: selectedSessions.has(s.session_id) ? "#F3F4F6" : "transparent",
             }}
-            onMouseEnter={e => e.currentTarget.style.background = "#FAFAFA"}
-            onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+            onMouseEnter={e => !selectedSessions.has(s.session_id) && (e.currentTarget.style.background = "#FAFAFA")}
+            onMouseLeave={e => !selectedSessions.has(s.session_id) && (e.currentTarget.style.background = "transparent")}
           >
+            {/* Checkbox */}
+            <div style={{ display: "flex", alignItems: "center" }}>
+              <Checkbox
+                checked={selectedSessions.has(s.session_id)}
+                onChange={() => toggleSession(s.session_id)}
+              />
+            </div>
+
             {/* Applicant — photo + name */}
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               {/* Photo avatar */}
@@ -245,23 +439,35 @@ export default function SessionsPage() {
             <span style={{ fontSize: 12, color: "#bbb" }}>
               {timeAgo(s.updated_at)}
             </span>
+
+            {/* Delete button */}
+            <div style={{ display: "flex", justifyContent: "center" }}>
+              <button
+                onClick={() => setToDeleteSingle(s)}
+                style={{
+                  padding: "5px 10px", borderRadius: 6, border: "1px solid #FECACA",
+                  background: "#FEF2F2", fontSize: 11, fontWeight: 600,
+                  cursor: "pointer", color: "#EF4444",
+                }}
+              >Del</button>
+            </div>
           </div>
         ))}
       </div>
 
       {/* Pagination */}
       {pagination && pagination.totalPages > 1 && (
-        <div style={{ 
-          display: "flex", 
-          alignItems: "center", 
-          justifyContent: "space-between", 
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
           marginTop: 24,
           padding: "16px 0"
         }}>
           <div style={{ fontSize: 13, color: "#666" }}>
             Showing {((page - 1) * 20) + 1} - {Math.min(page * 20, pagination.totalSessions)} of {pagination.totalSessions} sessions
           </div>
-          
+
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <button
               onClick={() => setPage(page - 1)}
@@ -276,11 +482,11 @@ export default function SessionsPage() {
             >
               ← Previous
             </button>
-            
+
             <span style={{ fontSize: 13, color: "#666", padding: "0 12px" }}>
               Page {page} of {pagination.totalPages}
             </span>
-            
+
             <button
               onClick={() => setPage(page + 1)}
               disabled={!pagination.hasNext}
@@ -296,6 +502,24 @@ export default function SessionsPage() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Delete single session confirmation */}
+      {toDeleteSingle && (
+        <DeleteSessionConfirm
+          session={toDeleteSingle}
+          onConfirm={async () => { await handleDeleteSingle(toDeleteSingle.session_id); }}
+          onCancel={() => setToDeleteSingle(null)}
+        />
+      )}
+
+      {/* Delete multiple sessions confirmation */}
+      {toDeleteMultiple && (
+        <DeleteSessionsConfirm
+          count={selectedSessions.size}
+          onConfirm={handleDeleteMultiple}
+          onCancel={() => setToDeleteMultiple(false)}
+        />
       )}
     </div>
   );
